@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>아이돌 능력치 분석 검사</title>
+    <!-- Tailwind CSS CDN --><script src="https://cdn.tailwindcss.com"></script>
+    <!-- html2canvas 라이브러리 --><script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Google Fonts --><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', 'Noto Sans KR', sans-serif;
+            background-color: #F9FAFB; 
+            color: #1F2937; 
+            overflow: hidden; 
+            touch-action: none;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .scale-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .scale-btn:active { transform: scale(0.96); }
+
+        .bento-item { transition: transform 0.2s, box-shadow 0.2s; }
+        .bento-item:active { transform: scale(0.98); }
+
+        canvas { max-width: 100%; }
+        button { touch-action: manipulation; }
+        
+        .word-keep-all { word-break: keep-all; overflow-wrap: break-word; } 
+
+        .progress-bar-inner {
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
+        }
+    </style>
+</head>
+<body class="h-[100dvh] w-screen flex items-center justify-center bg-[#F3F4F6] overflow-hidden">
+
+    <div id="app" class="w-full max-w-[420px] h-full max-h-[100dvh] sm:h-[850px] sm:max-h-[95vh] bg-[#FFFFFF] relative sm:rounded-[2rem] overflow-hidden flex flex-col shadow-2xl border border-[#E5E7EB]">
+        <!-- Content -->
+    </div>
+
+    <script>
+        const APP_STATE = {
+            SESSION_SELECT: 'SESSION_SELECT',
+            TEST_IN_PROGRESS: 'TEST_IN_PROGRESS',
+            RESULT_VIEW: 'RESULT_VIEW'
+        };
+
+        let currentState = APP_STATE.SESSION_SELECT;
+        let currentSession = null;
+        let currentQuestionIndex = 0;
+        let currentAnswers = [];
+        
+        let characterImage = null;
+        let characterName = "아이돌 멤버";
+        let catchphrase = "세상에서 가장 빛나는 별이 될게요!";
+
+        const sessionData = {
+            'Vocal': {
+                name: '보컬', engName: 'Vocal',
+                theme: 'bg-[#FDE2E2] text-[#D66B6B] border-[#FAD2D2]',
+                activeColor: '#D66B6B', lightColor: '#FFF0F0',
+                questions: [
+                    "음정 정확도가 매우 안정적이며 흔들림이 없습니다.", "리듬감이 뛰어나 정박과 엇박을 자유자재로 탑니다.", "호흡 조절 능력이 좋아 긴 구절도 끊김 없이 소화합니다.", "성량의 강약 조절(다이내믹)이 세밀하고 풍부합니다.", "고음역대에서 힘 있고 깨끗한 소리를 냅니다.", "저음역대에서도 울림이 좋고 안정적입니다.", "비브라토의 속도와 깊이를 의도대로 조절합니다.", "믹스 보이스와 진성의 전환이 매우 매끄럽습니다.", "가성(팔세토)을 공기 반 소리 반으로 예쁘게 냅니다.", "자신만의 고유하고 매력적인 음색을 가졌습니다.", "노래의 감정선을 파악하고 깊이 있게 표현합니다.", "곡의 분위기에 맞춰 창법을 유연하게 바꿉니다.", "가사 전달력(딕션)이 정확해 메시지가 잘 들립니다.", "화음(하모니)을 쌓는 능력이 탁월합니다.", "애드립과 멜리스마를 즉흥적으로 구사합니다.", "장시간 가창에도 목소리의 질이 유지됩니다.", "마이크 컨트롤 능력이 좋아 사운드가 일정합니다.", "격렬한 안무 중에도 라이브 음정이 안정적입니다.", "컨디션에 따른 음성 관리가 철저합니다.", "청음 능력이 좋아 새로운 멜로디를 금방 익힙니다.", "자신의 음역대와 장점을 정확히 파악하고 있습니다.", "도입부에서 관객의 귀를 사로잡는 마력이 있습니다.", "곡의 하이라이트를 터뜨리는 폭발력이 있습니다.", "R&B, 락, 트로트 등 다양한 장르 소화력이 좋습니다.", "코러스 녹음 시 레이어링 감각이 뛰어납니다.", "음악 이론 지식을 바탕으로 선율을 해석합니다.", "무대 위에서 여유로운 시선 처리와 매너를 갖췄습니다.", "다른 멤버들과의 목소리 합이 조화롭습니다.", "녹음실 디렉팅을 빠르게 이해하고 실행합니다.", "가사 속 화자의 마음을 분석해 스토리텔링을 합니다."
+                ],
+                axes: ['기본기', '고음/파워', '표현력', '라이브안정성', '음색/매력', '음악성'],
+                axisMap: [[0,1,2,19,25], [4,22,14], [10,11,12,29], [3,15,17,18,27], [5,6,9,21,23], [7,8,13,16,20,24,26,28]]
+            },
+            'Dance': {
+                name: '댄스', engName: 'Dance',
+                theme: 'bg-[#E0EEF5] text-[#6A9AB0] border-[#D0E3EF]',
+                activeColor: '#6A9AB0', lightColor: '#F0F7FB',
+                questions: [
+                    "동작의 정확도가 높아 안무의 정석을 보여줍니다.", "아이솔레이션(신체 분리) 능력이 탁월합니다.", "동작 사이의 연결이 부드럽고 유연합니다.", "힘의 완급 조절(강약)이 확실해 춤선이 예쁩니다.", "박자를 쪼개서 사용하는 디테일이 좋습니다.", "점프나 턴 등 고난도 테크닉이 안정적입니다.", "어떤 장르의 춤이든 습득 속도가 매우 빠릅니다.", "자신의 신체 조건을 활용해 춤선을 극대화합니다.", "무대 위에서 동선 이동이 정확하고 자연스럽습니다.", "격렬한 안무를 소화하는 체력이 뛰어납니다.", "표정 연기가 안무의 분위기와 완벽히 일치합니다.", "손끝과 발끝까지 에너지가 전달됩니다.", "프리스타일 댄스에서도 당황하지 않고 실력을 보여줍니다.", "군무 시 주변 멤버들과의 간격과 각도를 잘 맞춥니다.", "센터에서 무대를 압도하는 존재감이 강합니다.", "안무의 포인트를 살려내는 '끼'가 넘칩니다.", "턴 동작 후 중심을 잡는 코어 힘이 좋습니다.", "힙합, 현대무용, 팝핀 등 장르 이해도가 높습니다.", "안무가가 의도한 무드(Mood)를 정확히 구현합니다.", "소품을 활용한 퍼포먼스에 능숙합니다.", "무대 사고 발생 시 대처 능력이 유연합니다.", "자신만의 독창적인 제스처를 안무에 녹여냅니다.", "카메라 앵글을 파악해 가장 예쁜 각도를 찾습니다.", "그루브가 몸에 배어 있어 가만히 있어도 춤선이 납니다.", "안무를 창작하거나 수정하는 능력이 있습니다.", "동작 하나하나에 실리는 무게감이 뚜렷합니다.", "음악의 비트를 몸으로 시각화하는 능력이 좋습니다.", "안무를 외우는 기억력이 매우 좋습니다.", "파트가 아닐 때도 퍼포먼스 흐름을 유지합니다.", "전신을 조화롭게 사용하는 협응력이 뛰어납니다."
+                ],
+                axes: ['파워/에너지', '디테일', '표현/표정', '유연성', '군무합', '창의성'],
+                axisMap: [[0,9,14,16,25], [4,11,22,23,26], [10,15,18,21,28], [1,2,5,17,29], [3,8,13,20,27], [6,7,12,19,24]]
+            },
+            'Rap': {
+                name: '랩', engName: 'Rap',
+                theme: 'bg-[#FFF2CC] text-[#B48A05] border-[#FFE599]',
+                activeColor: '#D97706', lightColor: '#FFFBEB',
+                questions: [
+                    "딕션(발음)이 매우 정확해 빠른 랩도 잘 들립니다.", "박자를 밀고 당기는 플로우가 다채롭습니다.", "자신만의 독보적인 보이스 톤을 가졌습니다.", "가사 전달 시 감정의 고조를 잘 표현합니다.", "라임(운율) 배치가 세련되고 창의적입니다.", "비트의 무드를 이해하고 그 위에 잘 올라탑니다.", "발성 전달력이 좋아 가사가 꽂힙니다.", "가사 속에 재치 있는 펀치라인을 잘 넣습니다.", "직접 랩 메이킹(작사)을 하는 능력이 탁월합니다.", "무대 위에서 자유로운 제스처와 스웨그가 있습니다.", "싱잉 랩(Melodic Rap) 소화력이 좋습니다.", "호흡 배분이 완벽해 긴 벌스도 안정적입니다.", "비트 없이 랩을 해도 리듬감이 유지됩니다.", "더블링이나 추임새(Ad-lib) 센스가 좋습니다.", "다양한 BPM의 곡에 빠르게 적응합니다.", "가사 암기력이 좋아 실수하는 법이 없습니다.", "청중을 선동하고 호응을 유도하는 능력이 큽니다.", "랩 중간중간 섞는 추임새가 비트와 잘 어울립니다.", "자신의 삶이나 가치관을 가사에 잘 녹여냅니다.", "복잡한 비트 구조를 빠르게 분석합니다.", "영어나 외국어 랩 발음이 자연스럽습니다.", "라디오나 라이브에서 즉흥 랩 실력이 좋습니다.", "녹음 시 톤의 일관성을 잘 유지합니다.", "다른 래퍼와의 벌스 교차(Interaction)가 매끄럽습니다.", "성량이 크고 소리가 단단하게 나옵니다.", "트렌디한 랩 스타일을 빠르게 수용합니다.", "가사의 스토리텔링 구성 능력이 뛰어납니다.", "마이크 잡는 법과 거리 조절이 능숙합니다.", "긴장하지 않고 무대 위에서 여유를 부립니다.", "곡의 긴장감을 조성하는 텐션 조절 능력이 좋습니다."
+                ],
+                axes: ['딕션/전달', '플로우', '작사/라임', '스웨그', '호흡/안정성', '센스'],
+                axisMap: [[0,6,20,24,27], [1,5,12,14,25], [4,8,18,19,26], [2,9,10,16,28], [11,15,22,29], [3,7,13,17,21,23]]
+            },
+            'Visual': {
+                name: '비주얼', engName: 'Visual',
+                theme: 'bg-[#F0FDF4] text-[#60A376] border-[#DCFCE7]',
+                activeColor: '#82C49A', lightColor: '#F0FDF4',
+                questions: [
+                    "카메라 셔터 소리에 맞춰 다양한 포즈를 취합니다.", "표정 변화가 풍부해 컨셉에 맞는 얼굴을 만듭니다.", "자신의 외모 중 가장 매력적인 포인트를 압니다.", "어떤 의상이든 소화해내는 능력이 뛰어납니다.", "무대 위에서 윙크나 미소 등 팬서비스가 자연스럽습니다.", "카메라를 찾는 눈(Camera Work)이 예리합니다.", "전체적인 신체 비율과 라인이 아름답습니다.", "자신만의 독보적인 분위기(Aura)를 풍깁니다.", "화보 촬영 시 디렉션 없이도 A컷을 만들어냅니다.", "헤어와 메이크업 변화에 따라 이미지가 확 달라집니다.", "무대 위 엔딩 요정으로서 임팩트가 강합니다.", "광고주나 브랜드가 선호하는 고급스러운 이미지가 있습니다.", "대중들에게 호감을 주는 인상을 가졌습니다.", "연기력이 좋아 뮤직비디오에서 몰입감을 줍니다.", "일상 사진(남친짤/여친짤) 제조 능력이 좋습니다.", "다양한 컨셉(청량, 다크, 몽환 등) 소화력이 높습니다.", "무대 아래에서도 연예인 포스가 느껴집니다.", "자신에게 어울리는 스타일링을 제안할 줄 압니다.", "포토제닉하며 후보정 없이도 결과물이 훌륭합니다.", "팬들과의 소통 시 다정한 표정과 눈빛을 보냅니다.", "웃을 때와 무표정일 때의 갭 차이가 매력적입니다.", "피부와 이목구비의 관리가 철저합니다.", "작은 제스처 하나로 서사를 만들어냅니다.", "런웨이나 화보에서 전문 모델 같은 포즈를 취합니다.", "시각적인 균형미가 뛰어납니다.", "청중의 시선을 단숨에 뺏는 압도적 비주얼입니다.", "분위기 메이커로서 무대 무드를 주도합니다.", "자신의 매력을 영상에 담는 셀카 능력이 좋습니다.", "트렌디한 외모를 유지하기 위해 노력합니다.", "그룹의 이미지를 대표하는 센터다운 면모가 있습니다."
+                ],
+                axes: ['포토제닉', '표정/연기', '컨셉소화력', '매력지수', '팬서비스', '아우라'],
+                axisMap: [[0,8,18,23,27], [1,13,20,22,26], [3,9,15,17,28], [2,6,12,14,21], [4,10,19,29], [5,7,11,16,24,25]]
+            },
+            'Allrounder': {
+                name: '올라운더', engName: 'All-rounder',
+                theme: 'bg-[#E5DFF5] text-[#8A79B3] border-[#DCD3F0]',
+                activeColor: '#8A79B3', lightColor: '#F5F2FC',
+                questions: [
+                    "팀 내에서 보컬과 랩 포지션을 모두 훌륭하게 소화합니다.", "어떤 곡에서도 흔들리지 않는 라이브 실력을 갖췄습니다.", "격렬한 안무 도중에도 보컬/랩의 퀄리티가 일정합니다.", "안무 습득 능력이 뛰어나며 춤선이 매우 정교합니다.", "자신만의 독보적인 음색과 발성을 보유하고 있습니다.", "곡의 분위기에 맞춰 창법과 톤을 유연하게 바꿉니다.", "무대 위에서 시선 처리와 제스처가 매우 능숙합니다.", "카메라 워킹을 완벽히 이해하고 엔딩 요정 역할을 잘 수행합니다.", "다양한 컨셉(섹시, 청량, 힙합 등)을 이질감 없이 소화합니다.", "무대 위에서 '천재 아이돌'다운 압도적 아우라를 풍깁니다.", "표정 연기가 풍부하여 무대의 몰입도를 극대화합니다.", "곡 기획이나 안무 창작에 본인의 의견을 적극 반영합니다.", "랩 벌스 메이킹이나 작사 능력을 갖추고 있습니다.", "비주얼적으로 그룹의 중심(Center) 역할을 수행하기에 충분합니다.", "팬들과의 소통 능력이 좋으며 무대 밖에서도 매력이 넘칩니다.", "돌발 상황(음향 사고 등)에도 당황하지 않고 대처합니다.", "도입부나 하이라이트 등 곡의 핵심 파트를 책임질 수 있습니다.", "화음 쌓기나 코러스 등 음악적 서포트 능력도 뛰어납니다.", "댄스 브레이크의 중심에서 팀의 퍼포먼스를 이끌 수 있습니다.", "본인만의 시그니처 제스처나 킬링 포인트를 잘 만듭니다.", "마이크 컨트롤과 소품 활용 능력이 세련되었습니다.", "주변 멤버들의 실력을 북돋아주는 음악적 센스가 있습니다.", "체력이 좋아 공연 내내 에너지를 끝까지 유지합니다.", "전달력(딕션)이 좋아 가사의 메시지가 잘 들립니다.", "유연성과 코어 힘이 좋아 고난도 퍼포먼스가 가능합니다.", "트렌디한 스타일링을 본인에게 맞게 잘 제안합니다.", "프로듀싱이나 편곡 등 기술적인 음악 이해도가 높습니다.", "어떤 장르의 비트든 본인만의 그루브로 타냅니다.", "관객의 호응을 유도하고 무대를 장악하는 힘이 큽니다.", "그룹 전체의 밸런스를 잡아주는 핵심 멤버의 면모가 있습니다."
+                ],
+                axes: ['보컬/랩', '퍼포먼스', '표현력', '밸런스/센터', '라이브안정성', '음악성/센스'],
+                axisMap: [[0,4,17,23,27], [3,18,20,22,24], [6,8,10,11,19], [13,8,14,25,29], [1,2,5,15,16], [12,7,21,26,28]]
+            }
+        };
+
+        const sessionIcons = {
+            'Vocal': '🎤', 'Dance': '💃', 'Rap': '🔥', 'Visual': '✨', 'Allrounder': '🌟'
+        };
+
+        const appElement = document.getElementById('app');
+
+        function renderApp() {
+            appElement.innerHTML = '';
+            
+            if (currentState === APP_STATE.SESSION_SELECT) {
+                renderSessionSelect();
+            } else if (currentState === APP_STATE.TEST_IN_PROGRESS) {
+                renderTestInProgress();
+            } else if (currentState === APP_STATE.RESULT_VIEW) {
+                renderResultView();
+                setTimeout(() => {
+                    const data = sessionData[currentSession];
+                    const stats = calculateStats(currentAnswers);
+                    drawRadarChart('radar-chart', stats, data.axes, data.activeColor, data.lightColor);
+                }, 50);
+            }
+        }
+
+        function renderSessionSelect() {
+            const content = `
+                <div class="h-full flex flex-col p-6 bg-[#FFFFFF]">
+                    <div class="flex-none mb-6">
+                        <div class="flex items-center mb-4">
+                            <span class="p-2 rounded-full bg-[#F3F4F6] text-[#6B7280]">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                            </span>
+                            <span class="ml-2 font-bold text-[#9CA3AF] text-sm tracking-wider uppercase">Idol Analysis</span>
+                        </div>
+                        <h1 class="text-3xl font-extrabold text-[#111827] leading-tight word-keep-all">
+                            분석하고 싶은<br>포지션을 선택하세요
+                        </h1>
+                    </div>
+
+                    <div class="flex-1 grid grid-cols-2 grid-rows-3 gap-3 min-h-0">
+                        <button onclick="startTest('Vocal')" class="col-span-1 row-span-1 bento-item relative rounded-3xl bg-[#FDE2E2] text-[#D66B6B] p-5 flex flex-col items-start justify-start group border-2 border-transparent">
+                             <div class="flex flex-col items-start z-10">
+                                <span class="block font-extrabold text-xl">보컬</span>
+                                <span class="block text-sm font-semibold opacity-70">Vocal</span>
+                             </div>
+                             <div class="text-4xl absolute bottom-3 right-3 opacity-80 transform group-hover:scale-105 transition-transform duration-300">🎤</div>
+                        </button>
+
+                        <button onclick="startTest('Dance')" class="col-span-1 row-span-1 bento-item relative rounded-3xl bg-[#E0EEF5] text-[#6A9AB0] p-5 flex flex-col items-start justify-start group border-2 border-transparent">
+                             <div class="flex flex-col items-start z-10">
+                                <span class="block font-extrabold text-xl">댄스</span>
+                                <span class="block text-sm font-semibold opacity-70">Dance</span>
+                             </div>
+                             <div class="text-4xl absolute bottom-3 right-3 opacity-80 transform group-hover:scale-105 transition-transform duration-300">💃</div>
+                        </button>
+
+                        <button onclick="startTest('Rap')" class="col-span-1 row-span-1 bento-item relative rounded-3xl bg-[#FFF2CC] text-[#B48A05] p-5 flex flex-col items-start justify-start group border-2 border-transparent">
+                             <div class="flex flex-col items-start z-10">
+                                <span class="block font-extrabold text-xl">랩</span>
+                                <span class="block text-sm font-semibold opacity-70">Rap</span>
+                             </div>
+                             <div class="text-4xl absolute bottom-3 right-3 opacity-80 transform group-hover:scale-105 transition-transform duration-300">🔥</div>
+                        </button>
+
+                        <button onclick="startTest('Visual')" class="col-span-1 row-span-1 bento-item relative rounded-3xl bg-[#F0FDF4] text-[#60A376] p-5 flex flex-col items-start justify-start group border-2 border-transparent">
+                             <div class="flex flex-col items-start z-10">
+                                <span class="block font-extrabold text-xl">비주얼</span>
+                                <span class="block text-sm font-semibold opacity-70">Visual</span>
+                             </div>
+                             <div class="text-4xl absolute bottom-3 right-3 opacity-80 transform group-hover:scale-105 transition-transform duration-300">✨</div>
+                        </button>
+
+                        <button onclick="startTest('Allrounder')" class="col-span-2 row-span-1 bento-item relative rounded-3xl bg-[#E5DFF5] text-[#8A79B3] p-6 flex flex-col items-start justify-start group border-2 border-transparent overflow-hidden">
+                            <div class="flex flex-col items-start z-10">
+                                <span class="font-extrabold text-2xl sm:text-3xl">올라운더</span>
+                                <span class="text-sm font-semibold opacity-80 mt-1">All-rounder</span>
+                            </div>
+                            <div class="text-4xl absolute bottom-3 right-3 opacity-80 transform group-hover:scale-105 transition-transform duration-300">🌟</div>
+                        </button>
+                    </div>
+                </div>
+            `;
+            appElement.innerHTML = content;
+        }
+
+        function renderTestInProgress() {
+            const data = sessionData[currentSession];
+            const totalQ = data.questions.length;
+            const currentQText = data.questions[currentQuestionIndex];
+            const progress = ((currentQuestionIndex + 1) / totalQ) * 100;
+            const isFirstQuestion = currentQuestionIndex === 0;
+
+            const scales = [
+                { val: 1, label: '전혀 아님' },
+                { val: 2, label: '아님' },
+                { val: 3, label: '보통' },
+                { val: 4, label: '그렇다' },
+                { val: 5, label: '매우 그렇다' }
+            ];
+
+            const content = `
+                <div class="flex flex-col h-full bg-[#F9FAFB] relative">
+                    <div class="flex-none px-6 py-5 flex items-center justify-between bg-white z-10 border-b border-[#F3F4F6]">
+                        <button onclick="goBack()" ${isFirstQuestion ? 'disabled' : ''} class="p-2 -ml-2 rounded-full hover:bg-[#F3F4F6] text-[#374151] ${isFirstQuestion ? 'opacity-30 cursor-not-allowed' : ''}">
+                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+                        </button>
+                        <div class="flex flex-col items-center">
+                            <span class="font-bold text-lg text-[#111827] leading-none">${data.name} 포지션</span>
+                            <span class="text-xs text-[#9CA3AF] font-medium mt-1">${currentQuestionIndex + 1} / ${totalQ}</span>
+                        </div>
+                        <button onclick="goHome()" class="p-2 -mr-2 rounded-full hover:bg-[#F3F4F6] text-[#374151]">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="flex-none w-full h-1 bg-[#F3F4F6]">
+                        <div class="h-full progress-bar-inner" style="width: ${progress}%; background-color: ${data.activeColor};"></div>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto no-scrollbar p-6 pb-20 flex flex-col">
+                        <div class="flex-none bg-white rounded-[2rem] p-8 shadow-sm border border-[#E5E7EB] mb-6 min-h-[160px] flex flex-col justify-center items-center text-center">
+                            <span class="inline-block px-3 py-1 rounded-full ${data.theme} text-xs font-bold mb-3">
+                                Question ${currentQuestionIndex + 1}
+                            </span>
+                            <p class="text-xl sm:text-2xl font-bold text-[#111827] leading-snug word-keep-all">
+                                ${currentQText}
+                            </p>
+                        </div>
+
+                        <div class="flex-1 flex flex-col justify-center space-y-3">
+                            ${scales.map((item) => `
+                                <button onclick="recordAnswer(${item.val}, this)" 
+                                    data-active-bg="${data.activeColor}"
+                                    class="w-full py-3.5 px-6 rounded-2xl border-2 flex items-center justify-between transition-all duration-200 scale-btn group bg-white text-[#4B5563] border-[#E5E7EB]">
+                                    <span class="text-sm font-bold opacity-80 group-active:text-white">${item.label}</span>
+                                    <span class="text-lg font-black font-mono group-active:text-white">${item.val}</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            appElement.innerHTML = content;
+        }
+
+        function renderResultView() {
+            const data = sessionData[currentSession];
+            const stats = calculateStats(currentAnswers);
+            const themeColor = data.activeColor;
+            
+            const axisElements = data.axes.map((axisName, index) => {
+                const score = stats.scores[index];
+                const scorePercent = score.toFixed(0);
+                return `
+                    <div class="flex flex-col py-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-semibold text-[#4B5563]">${axisName}</span>
+                            <span class="text-xs font-extrabold" style="color: ${themeColor};">${scorePercent}</span>
+                        </div>
+                        <div class="h-2 w-full rounded-full bg-[#F3F4F6] overflow-hidden">
+                            <div class="h-full rounded-full" style="background-color: ${themeColor}; width: ${scorePercent}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            const content = `
+                <div class="h-full flex flex-col bg-[#F9FAFB] overflow-hidden">
+                    <div class="flex-none px-6 py-5 flex justify-between items-center bg-white border-b border-[#F3F4F6] z-10">
+                        <h1 class="text-xl font-extrabold text-[#111827]">아이돌 능력치 리포트</h1>
+                        <button onclick="exportResultAsImage()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F3F4F6] text-xs font-bold text-[#4B5563] hover:bg-[#E5E7EB] transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            이미지 저장
+                        </button>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto no-scrollbar bg-[#F9FAFB] relative">
+                        <div id="result-capture-area" class="px-6 py-6 pb-24 bg-[#F9FAFB] min-h-full">
+                            
+                            <div class="bg-white rounded-[2rem] p-5 shadow-sm border border-[#E5E7EB] mb-4 flex items-center gap-4">
+                                <div class="relative w-24 h-24 flex-shrink-0 cursor-pointer group" onclick="triggerFileInput()">
+                                    <input type="file" id="image-upload" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+                                    <div id="char-image-display" class="w-full h-full rounded-full overflow-hidden border-2 border-[#F3F4F6] bg-[#F3F4F6] flex items-center justify-center text-3xl">
+                                        ${characterImage 
+                                            ? `<img src="${characterImage}" class="w-full h-full object-cover">` 
+                                            : `${sessionIcons[currentSession]}`}
+                                    </div>
+                                    <div class="absolute inset-0 rounded-full bg-[#111827] bg-opacity-0 group-hover:bg-opacity-20 flex items-center justify-center transition duration-300">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-white opacity-0 group-hover:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5l-3.5 3.5 6 6 3.5-3.5z"/><path d="M19 14l-6 6"/><path d="M8 8H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/></svg>
+                                    </div>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="text-xl font-extrabold text-[#111827]" id="char-name-display" contenteditable="true" onblur="characterName = this.innerText">${characterName}</span>
+                                        <span class="inline-block px-3 py-0.5 rounded-full text-xs font-bold align-middle leading-tight" style="color: ${themeColor}; background-color: ${data.lightColor};">${data.name}</span>
+                                    </div>
+                                    <p class="text-sm text-[#9CA3AF] word-keep-all" id="char-catchphrase-display" contenteditable="true" onblur="catchphrase = this.innerText">${catchphrase}</p>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-[2rem] p-5 shadow-sm border border-[#E5E7EB] mb-4">
+                                <h2 class="text-lg font-extrabold text-[#111827] mb-4 border-b pb-2 border-[#F3F4F6]">포지션 밸런스 분석</h2>
+                                <canvas id="radar-chart" width="320" height="320" class="mx-auto"></canvas>
+                            </div>
+
+                            <div class="bg-white rounded-[2rem] p-5 shadow-sm border border-[#E5E7EB]">
+                                <h2 class="text-lg font-extrabold text-[#111827] mb-2 border-b pb-2 border-[#F3F4F6]">상세 능력치 스코어</h2>
+                                ${axisElements}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-none p-4 bg-white border-t border-[#F3F4F6] absolute bottom-0 w-full">
+                         <button onclick="goHome()" class="w-full py-3 rounded-2xl bg-[#111827] text-white font-bold text-lg scale-btn shadow-lg">
+                            새 포지션 테스트하기
+                        </button>
+                    </div>
+                </div>
+            `;
+            appElement.innerHTML = content;
+        }
+
+        function startTest(sessionKey) {
+            currentSession = sessionKey;
+            currentState = APP_STATE.TEST_IN_PROGRESS;
+            currentQuestionIndex = 0; 
+            currentAnswers = []; 
+            characterImage = null;
+            characterName = "아이돌 멤버";
+            catchphrase = "세상에서 가장 빛나는 별이 될게요!";
+            renderApp();
+        }
+        
+        function goBack() {
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                renderApp();
+            } else {
+                goHome();
+            }
+        }
+        
+        function goHome() {
+            currentState = APP_STATE.SESSION_SELECT;
+            currentSession = null;
+            currentQuestionIndex = 0;
+            currentAnswers = [];
+            renderApp();
+        }
+
+        function recordAnswer(score, element) {
+            const activeColor = element.getAttribute('data-active-bg');
+            element.style.backgroundColor = activeColor;
+            element.style.borderColor = activeColor;
+            element.querySelectorAll('span').forEach(s => s.style.color = 'white');
+
+            currentAnswers[currentQuestionIndex] = score;
+            
+            setTimeout(() => {
+                if (currentQuestionIndex < sessionData[currentSession].questions.length - 1) {
+                    currentQuestionIndex++;
+                    renderApp();
+                } else {
+                    currentState = APP_STATE.RESULT_VIEW;
+                    renderApp();
+                }
+            }, 150);
+        }
+
+        function calculateStats(answers) {
+            const data = sessionData[currentSession];
+            const stats = [];
+            data.axisMap.forEach((qIndices) => {
+                let axisSum = 0;
+                let axisCount = 0;
+                qIndices.forEach(qIndex => {
+                    const answer = answers[qIndex];
+                    if (answer !== undefined) {
+                        axisSum += answer;
+                        axisCount++;
+                    }
+                });
+                const axisAverage = axisCount > 0 ? axisSum / axisCount : 0;
+                stats.push((axisAverage / 5) * 100);
+            });
+            return { scores: stats };
+        }
+
+        function drawRadarChart(canvasId, stats, axes, themeColor, lightColor) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const numAxes = axes.length;
+            const angle = (Math.PI * 2) / numAxes;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const maxRadius = (Math.min(canvas.width, canvas.height) / 2) * 0.65;
+            const scores = stats.scores;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = '#E5E7EB';
+            ctx.lineWidth = 1;
+            for (let i = 1; i <= 5; i++) {
+                ctx.beginPath();
+                const radius = (maxRadius / 5) * i;
+                for (let j = 0; j < numAxes; j++) {
+                    const x = centerX + radius * Math.cos(j * angle - Math.PI / 2);
+                    const y = centerY + radius * Math.sin(j * angle - Math.PI / 2);
+                    if (j === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.stroke();
+            }
+
+            axes.forEach((axis, i) => {
+                const x = centerX + maxRadius * Math.cos(i * angle - Math.PI / 2);
+                const y = centerY + maxRadius * Math.sin(i * angle - Math.PI / 2);
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+
+                ctx.font = 'bold 11px Noto Sans KR';
+                ctx.fillStyle = '#9CA3AF';
+                ctx.textAlign = 'center';
+                const labelX = centerX + (maxRadius + 20) * Math.cos(i * angle - Math.PI / 2);
+                const labelY = centerY + (maxRadius + 20) * Math.sin(i * angle - Math.PI / 2);
+                ctx.fillText(axis, labelX, labelY + 5);
+            });
+
+            ctx.beginPath();
+            ctx.fillStyle = themeColor + '33';
+            ctx.strokeStyle = themeColor;
+            ctx.lineWidth = 3;
+            scores.forEach((score, i) => {
+                const radius = (maxRadius * score) / 100;
+                const x = centerX + radius * Math.cos(i * angle - Math.PI / 2);
+                const y = centerY + radius * Math.sin(i * angle - Math.PI / 2);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        function triggerFileInput() {
+            document.getElementById('image-upload').click();
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    characterImage = e.target.result;
+                    document.getElementById('char-image-display').innerHTML = `<img src="${characterImage}" class="w-full h-full object-cover">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function exportResultAsImage() {
+            const element = document.getElementById('result-capture-area');
+            html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#F9FAFB'
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `Idol_Analysis_${characterName}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+        }
+
+        window.onload = renderApp;
+    </script>
+</body>
+</html>
